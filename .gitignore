@@ -1,0 +1,24 @@
+# Build output
+build/
+*.o
+*.d
+*.a
+bms_sim
+bms_tests
+
+# Sanitizer / coverage artifacts
+*.gcda
+*.gcno
+*.profraw
+*.dSYM/
+
+# Editor and OS noise
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*~
+
+# Reference material kept locally, not redistributed
+# (cell datasheets and the FSAE rulebook are copyrighted - cite, don't vendor)
+reference/*.pdf
