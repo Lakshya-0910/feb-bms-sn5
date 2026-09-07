@@ -22,3 +22,7 @@ bms_tests
 # Reference material kept locally, not redistributed
 # (cell datasheets and the FSAE rulebook are copyrighted - cite, don't vendor)
 reference/*.pdf
+
+# Python bytecode
+__pycache__/
+*.pyc
