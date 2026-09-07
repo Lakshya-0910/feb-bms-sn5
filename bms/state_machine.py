@@ -360,6 +360,11 @@ class BMS:
 
     # --- reporting --------------------------------------------------------
 
+    @property
+    def outputs(self) -> Outputs:
+        """Last commands issued, so other layers need not re-derive them."""
+        return self._outputs
+
     def trace(self) -> list[str]:
         return [
             f"{t:>7} ms  {src} --{evt}--> {dst}"
