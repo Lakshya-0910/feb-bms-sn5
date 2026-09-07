@@ -1,13 +1,7 @@
-"""Core vocabulary for the SN5 BMS: states, events and fault codes.
+"""States, events and fault codes.
 
-Rule references are to the Formula SAE Rules 2026 v1.0 (10 Sept 2025). Note the
-2026 rules renamed the AMS to the BMS; older FSAE material still says AMS.
-
-Units used across the project:
-    voltage      volts       (float)
-    temperature  degrees C   (float)
-    current      amps        (float, positive = discharge, negative = charge)
-    time         milliseconds (int, so timing is exact and reproducible)
+Rules cited are Formula SAE 2026 v1.0; the 2026 rules renamed the AMS to the BMS.
+Units: volts, degrees C, amps (+ discharge / - charge), milliseconds as ints.
 """
 
 from dataclasses import dataclass
@@ -15,7 +9,7 @@ from enum import Enum, Flag, auto
 
 
 class State(Enum):
-    """The ten states of the machine, in roughly the order they are reached."""
+    """The ten states, in roughly the order they are reached."""
 
     INIT = auto()
     SELF_TEST = auto()       # verify sense channels and relay positions, EV.7.3.4 d,e
@@ -33,12 +27,8 @@ class State(Enum):
 
 
 class Event(Enum):
-    """Things that happen to the machine.
-
-    Events are derived from the sensor snapshot by monitor.py and faults.py. The
-    transition table matches on events only and never reads a raw sensor value,
-    so adding a sensor means adding a derivation rather than editing state logic.
-    """
+    """Derived from sensor data by monitor.py and faults.py, never read raw by the
+    transition table - so a new sensor means a new derivation, not new state logic."""
 
     NONE = auto()
     TICK = auto()               # time advanced; drives the timed states
@@ -62,11 +52,8 @@ class Event(Enum):
 
 
 class Fault(Flag):
-    """Fault codes, as a bit flag so several can be active at once.
-
-    Grouped by the five things EV.7.3.4 requires the BMS to monitor. Duties (b),
-    (d) and (e) are the ones most implementations skip, and they are mandatory.
-    """
+    """Bit flags, so several can be active at once and the set fits one CAN word.
+    Grouped by the five things EV.7.3.4 requires the BMS to monitor."""
 
     NONE = 0
 
@@ -98,9 +85,7 @@ class Fault(Flag):
     SHUTDOWN_TIMEOUT = auto()
 
 
-# Kept next to the codes rather than only in a document, so the mapping cannot
-# drift out of date. Printed by the simulator and used to build the write-up's
-# traceability table.
+# Kept beside the codes so the mapping cannot drift out of date.
 FAULT_RULES: dict[Fault, str] = {
     Fault.CELL_OVERVOLT: "EV.7.4.2",
     Fault.CELL_UNDERVOLT: "EV.7.4.2",
@@ -122,13 +107,8 @@ CHANNEL_NONE = -1  # fault is not tied to a specific sensor channel
 
 @dataclass
 class FirstFault:
-    """The first fault to latch in a latch cycle, kept until a manual reset.
-
-    One failure cascades into others within milliseconds: a hot cell sags under
-    load and trips undervoltage too, so by the time anyone reads the fault mask
-    the causal code is indistinguishable from its consequences. This records
-    only the first, and is broadcast on CAN so it survives the pack going dark.
-    """
+    """The first fault of a latch cycle. One failure cascades into others within
+    milliseconds, so without this the causal code is lost among its consequences."""
 
     code: Fault
     measured: float          # the offending reading, in that code's unit

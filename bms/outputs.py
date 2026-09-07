@@ -1,10 +1,7 @@
 """Everything the BMS commands in one tick.
 
-Every field defaults to False, and that is deliberate. EV.7.1.3 requires the
-BMS's contribution to the shutdown circuit to be normally open: de-energised
-means open means safe. Building the defaults the same way means a crash, a
-missed tick or an unhandled state all fail toward the same condition as a cut
-wire, rather than toward a closed contactor.
+Every field defaults to False by design: EV.7.1.3 makes the BMS contact normally
+open, so a crash or missed tick fails the same way a cut wire does.
 """
 
 from dataclasses import dataclass, field
@@ -19,10 +16,8 @@ class Outputs:
     air_negative_cmd: bool = False
     precharge_relay_cmd: bool = False   # EV.5.6.5, mechanical relay
 
-    # The BMS's own contact in the shutdown circuit, EV.7.1.1 a / EV.7.1.3.
-    # Closing it is permission for the tractive system to be live; opening it
-    # drops the car out, and after a fault it must stay open until a person
-    # resets it at the vehicle (EV.7.2.3).
+    # The BMS's contact in the shutdown circuit (EV.7.1.1 a). Closed is
+    # permission for HV; after a fault it stays open until reset (EV.7.2.3).
     shutdown_circuit_closed: bool = False
 
     # The separate charging shutdown circuit, EV.8.3.
@@ -35,13 +30,12 @@ class Outputs:
     # EV.9.6.1: the motors respond to the accelerator only in READY_TO_DRIVE.
     motors_enabled: bool = False
 
-    # Per-module passive bleed. EV.7.3.3 forbids balancing while the shutdown
-    # circuit is open, so this is only ever non-empty in BALANCING.
+    # Per-module bleed; EV.7.3.3 bans balancing while the SDC is open.
     balance_bleed: list[bool] = field(default_factory=list)
 
     @classmethod
     def safe(cls) -> "Outputs":
-        """Everything de-energised. The state the hardware falls to on its own."""
+        """Everything de-energised - where the hardware falls on its own."""
         return cls()
 
     @property

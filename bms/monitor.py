@@ -1,9 +1,7 @@
 """Reduce a raw snapshot to the few facts the rest of the BMS reasons about.
 
-Nothing here decides anything. It answers "what is the pack doing", and
-faults.py decides whether that is acceptable. Keeping the two apart means the
-fault rules can be read without wading through list arithmetic, and the
-extremes get located once per tick instead of once per check.
+Nothing here decides anything - faults.py judges. Splitting them keeps the fault
+rules readable and locates each extreme once per tick rather than once per check.
 """
 
 from dataclasses import dataclass
@@ -14,12 +12,8 @@ from .inputs import SensorSnapshot
 
 @dataclass(frozen=True)
 class PackSummary:
-    """What one tick of sensor data amounts to.
-
-    Extremes carry their index, not just their value: a fault report that says
-    "module 37 hit 61 C" tells the crew where to look, one that says "61 C"
-    does not.
-    """
+    """What one tick of sensor data amounts to. Extremes carry their index, so a
+    report can say "module 37 hit 61 C" rather than just "61 C"."""
 
     pack_volts: float
     current_amps: float
@@ -75,8 +69,8 @@ def summarise(snapshot: SensorSnapshot, config: PackConfig) -> PackSummary:
         max_temp=temps[max_t_index],
         max_temp_index=max_t_index,
         intermediate_volts=snapshot.intermediate_volts,
-        # An empty pack would divide by zero; treat it as no progress rather
-        # than crashing, since the undervoltage fault is the real story there.
+        # Empty pack: report no progress rather than crash; undervoltage is the
+        # real story there.
         precharge_ratio=(snapshot.intermediate_volts / pack_volts) if pack_volts > 0 else 0.0,
         voltage_stale=snapshot.voltage_age_ms > config.sense_timeout_ms,
         temp_stale=snapshot.temp_age_ms > config.sense_timeout_ms,
@@ -84,12 +78,8 @@ def summarise(snapshot: SensorSnapshot, config: PackConfig) -> PackSummary:
 
 
 def precharge_complete(summary: PackSummary, config: PackConfig) -> bool:
-    """EV.5.6.1 a: intermediate circuit at 90 % of pack before the second IR closes.
-
-    EV.5.6.2 a requires this to be decided by voltage feedback. There is
-    deliberately no time term here - the timeout in the state machine only
-    raises a fault, it can never complete a precharge.
-    """
+    """EV.5.6.1 a: 90 % of pack before the second IR closes. EV.5.6.2 a makes this
+    voltage feedback, so there is deliberately no time term here."""
     return summary.precharge_ratio >= config.precharge_target_fraction
 
 
@@ -98,8 +88,7 @@ def balance_needed(summary: PackSummary, config: PackConfig) -> bool:
 
 
 def balance_settled(summary: PackSummary, config: PackConfig) -> bool:
-    # Hysteresis: stop bleeding below a lower bar than the one that started it,
-    # otherwise the pack chatters in and out of BALANCING around the threshold.
+    # Hysteresis, or the pack chatters in and out of BALANCING at the threshold.
     return summary.imbalance_volts <= (
         config.balance_threshold_volts - config.balance_hysteresis_volts
     )

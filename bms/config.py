@@ -42,9 +42,8 @@ class PackConfig:
     max_charge_amps: float = 16.0        # 4 A/cell x 4 parallel
 
     # --- Measurement accuracy -------------------------------------------
-    # EV.7.4.2 and EV.7.5.2 require limits to be met "considering measurement
-    # accuracy", so every threshold is pulled in by the error of the sensor
-    # that checks it. Trip early by exactly our uncertainty, never late.
+    # EV.7.4.2 / EV.7.5.2: limits must hold "considering measurement accuracy",
+    # so each threshold is pulled in by the error of the sensor that checks it.
     voltage_accuracy: float = 0.025      # 25 mV, AFE plus sense-wire drop
     temp_accuracy: float = 2.0           # 2 C, thermistor plus ADC
     current_accuracy: float = 1.0        # 1 A, hall sensor
@@ -57,8 +56,7 @@ class PackConfig:
     rtds_duration_ms: int = 2000         # EV.9.7.2 allows 1000-3000 ms
     sense_timeout_ms: int = 100          # EV.7.3.4 d, stale reading is a fault
 
-    # Debounce windows. A single noisy sample must not open the shutdown
-    # circuit mid-corner, but a real excursion still has to latch quickly.
+    # Debounce: one noisy sample must not open the shutdown circuit mid-corner.
     voltage_debounce_ms: int = 50
     temp_debounce_ms: int = 200          # thermal mass makes spikes implausible
     current_debounce_ms: int = 100
@@ -107,8 +105,8 @@ class PackConfig:
         return self.cells_per_module * self.cell_capacity_ah
 
     # --- Effective limits, accuracy already applied ----------------------
-    # These are what the fault checks compare against. The raw datasheet
-    # values above are kept only so the margin is visible and auditable.
+    # What the fault checks compare against; raw datasheet values stay above so
+    # the margin remains visible.
     @property
     def effective_overvolt(self) -> float:
         return self.cell_max_volts - self.voltage_accuracy
@@ -141,6 +139,11 @@ class PackConfig:
     @property
     def effective_max_charge_amps(self) -> float:
         return self.max_charge_amps - self.current_accuracy
+
+    @property
+    def charge_target_volts(self) -> float:
+        """A margin below the overvoltage trip, so a full charge does not fault."""
+        return self.effective_overvolt - self.voltage_accuracy
 
     def precharge_target_volts(self, pack_volts: float) -> float:
         """Voltage the intermediate circuit must reach before the second IR closes."""

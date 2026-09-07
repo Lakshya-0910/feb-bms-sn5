@@ -1,20 +1,9 @@
-"""Decide whether what the pack is doing is acceptable, and remember if it wasn't.
+"""Judge whether the pack is behaving, and remember when it was not.
 
-Three mechanisms, in order of how often they get questioned:
-
-Debounce - a condition must persist before it latches. Windows differ by
-physics: voltage sag is fast and noisy, temperature has thermal mass so a
-one-sample spike is implausible, and a missing measurement is not noise at all
-and latches immediately.
-
-Latching - EV.7.3.5 with EV.7.2.3 requires that anything in the EV.7.3.4 list
-opens the shutdown circuit and stays open until a person resets it at the
-vehicle. So faults never self-clear, and reset() refuses while the condition is
-still live: pressing the button on a pack that is still too hot does nothing.
-
-Context - the same temperature can be legal while driving and a fault while
-charging, because charging a cold or hot lithium cell damages it. Limits are
-chosen by which way the current is flowing.
+Three mechanisms: debounce (a condition must persist, with windows set by the
+physics), latching (EV.7.3.5 and EV.7.2.3 - faults never self-clear and reset
+refuses while a condition is live), and context (charge limits are tighter than
+discharge limits, so the same reading can be legal one way and a fault the other).
 """
 
 from dataclasses import dataclass
@@ -65,8 +54,7 @@ class FaultManager:
             if self._elapsed[code] >= self._debounce_ms(code):
                 self._latch(condition, state, uptime_ms)
 
-        # A condition that went away stops accumulating and starts over if it
-        # returns. Only the latch survives.
+        # A condition that clears starts over if it returns; only the latch survives.
         for code in list(self._elapsed):
             if code not in self._live:
                 del self._elapsed[code]
@@ -91,8 +79,7 @@ class FaultManager:
             found.append(Condition(Fault.CELL_UNDERVOLT, summary.min_cell_volts,
                                    c.effective_undervolt, summary.min_cell_index))
 
-        # EV.7.3.4 c - cell temperature, EV.7.5.2. The charge window is tighter
-        # at both ends than the discharge window.
+        # EV.7.3.4 c / EV.7.5.2. The charge window is tighter at both ends.
         charging = state is State.CHARGING or summary.charging
         max_temp = c.effective_charge_max_temp if charging else c.effective_max_temp
         min_temp = c.effective_charge_min_temp if charging else c.effective_discharge_min_temp
@@ -128,9 +115,8 @@ class FaultManager:
         if not snapshot.imd_ok:
             found.append(Condition(Fault.IMD, 0.0, 0.0))
 
-        # A relay commanded open that still reads closed is welded. Checked only
-        # against an open command, and debounced long enough for a healthy
-        # contactor to physically move.
+        # Commanded open but reading closed means welded; debounced long enough
+        # for a healthy contactor to actually move.
         if last_outputs is not None:
             if not last_outputs.air_positive_cmd and snapshot.air_positive_closed:
                 found.append(Condition(Fault.AIR_WELD, 1.0, 0.0, channel=0))
@@ -149,7 +135,7 @@ class FaultManager:
             return c.current_debounce_ms
         if code is Fault.IMD:
             return c.imd_debounce_ms
-        # Missing data and internal faults are not noise. No debounce.
+        # Missing data and internal faults are not noise, so no debounce.
         return 0
 
     def _latch(self, condition: Condition, state: State, uptime_ms: int) -> None:
@@ -174,8 +160,8 @@ class FaultManager:
         measured: float = 0.0,
         threshold: float = 0.0,
     ) -> None:
-        """For faults only the state machine can see, such as a precharge that
-        never completed or a tractive system that stayed live too long."""
+        """For faults only the state machine can see, e.g. a precharge that never
+        completed or a tractive system that stayed live too long."""
         self._latch(Condition(code, measured, threshold), state, uptime_ms)
 
     # --- reset ------------------------------------------------------------
@@ -186,12 +172,8 @@ class FaultManager:
         return not self._live
 
     def reset(self) -> bool:
-        """Clear the latch. Refuses while any condition is still live.
-
-        Callers must already have confirmed a physical reset (EV.7.2.3 b). The
-        only source of that is DriverInputs.manual_reset; the CAN layer cannot
-        set it.
-        """
+        """Clear the latch; refuses while a condition is live. Callers must already
+        have a physical reset (EV.7.2.3 b), whose only source is DriverInputs."""
         if not self.resettable:
             return False
         self.active = Fault.NONE
