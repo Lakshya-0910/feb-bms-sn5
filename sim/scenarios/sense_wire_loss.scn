@@ -1,0 +1,8 @@
+# The voltage sense chain stops answering. EV.7.3.4 d, no debounce.
+@0      glv on
+@200    tsms on
+@2000   brake on
+@2100   start press
+@2300   start release
+@5000   voltage_age 500
+end     8000

@@ -1,0 +1,11 @@
+# Fault, cool down, and the physical reset at the vehicle. EV.7.2.3.
+@0      glv on
+@200    tsms on
+@2000   brake on
+@2100   start press
+@2300   start release
+@4000   cell_temp[7] 70
+@6000   cell_temp[7] 30
+@7000   reset press
+@7200   reset release
+end     11000

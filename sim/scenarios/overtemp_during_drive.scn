@@ -1,0 +1,8 @@
+# A module cooks while the car is on track. EV.7.5.2.
+@0      glv on
+@200    tsms on
+@2000   brake on
+@2100   start press
+@2300   start release
+@4000   ramp cell_temp[30:34] 40 -> 64 over 6000
+end     12000

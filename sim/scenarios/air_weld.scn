@@ -1,0 +1,5 @@
+# An isolation relay is commanded open but still reads closed. EV.5.4.2.
+@0      glv on
+@500    plant off
+@600    air+ closed
+end     3000

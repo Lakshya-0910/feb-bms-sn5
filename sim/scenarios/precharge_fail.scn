@@ -1,0 +1,5 @@
+# Precharge relay never closes, so the intermediate circuit stays flat.
+@0      glv on
+@100    plant off
+@200    tsms on
+end     7000

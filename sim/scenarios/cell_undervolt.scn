@@ -1,0 +1,9 @@
+# One module collapses under load. EV.7.4.2.
+@0      glv on
+@200    tsms on
+@2000   brake on
+@2100   start press
+@2300   start release
+@4000   current 70
+@5000   ramp cell_v[12] 3.80 -> 2.40 over 3000
+end     11000

@@ -1,0 +1,10 @@
+# Charge to full, drift apart, top-balance, settle. EV.8 and EV.7.3.3.
+@0      glv on
+@100    cell_v 3.60
+@200    charger on
+@300    current -12
+@1000   ramp cell_v 3.60 -> 4.16 over 6000
+@7100   current 0
+@7200   cell_v[0] 4.05
+@9500   cell_v[0] 4.13
+end     12000

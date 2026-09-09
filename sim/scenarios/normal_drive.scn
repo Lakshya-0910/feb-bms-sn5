@@ -1,0 +1,8 @@
+# A clean run: power up, precharge, go ready to drive, then shut down.
+@0      glv on
+@200    tsms on
+@3000   brake on
+@3100   start press
+@3300   start release
+@8000   tsms off
+end     11000
