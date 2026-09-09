@@ -84,9 +84,10 @@ def _rtd_conditions(ctx: Context) -> bool:
 
 
 def _charge_needed(ctx: Context) -> bool:
-    """Do not start charging a pack that is already full, or IDLE and CHARGING
-    ping-pong for as long as the charger stays plugged in."""
-    return ctx.summary.min_cell_volts < ctx.config.charge_target_volts
+    """Room to charge, judged by the highest cell: pushing past it would
+    overcharge that cell however empty the rest of the pack is. Also stops IDLE
+    and CHARGING ping-ponging while the charger stays plugged in."""
+    return ctx.summary.max_cell_volts < ctx.config.charge_target_volts
 
 
 def _balance_wanted(ctx: Context) -> bool:
@@ -254,7 +255,9 @@ class BMS:
         elif self.state is State.CHARGING:
             if not ctx.driver.charger_connected:
                 events.append(Event.CHARGER_REMOVED)
-            elif ctx.summary.min_cell_volts >= ctx.config.charge_target_volts:
+            elif ctx.summary.max_cell_volts >= ctx.config.charge_target_volts:
+                # The highest cell is full. If the pack is uneven the low cells
+                # can only be filled after bleeding the high ones down.
                 events.append(Event.CHARGE_COMPLETE)
             elif balance_needed(ctx.summary, ctx.config):
                 events.append(Event.BALANCE_REQUEST)
