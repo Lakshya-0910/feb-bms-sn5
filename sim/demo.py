@@ -345,6 +345,21 @@ def mandated_behaviour() -> None:
           over_can.state is State.FAULT and over_can.can.rejected_resets == 1,
           "physical action required, EV.7.2.3 b,c")
 
+    # Regen pushes current into the pack while driving. Charge limits must not
+    # follow the current sign, or a legal warm pack faults on track.
+    regen = Car(temp=47.0)
+    regen.drive()
+    regen.snapshot.pack_current_amps = -8.0
+    regen.run(600)
+    driving_ok = regen.state is State.READY_TO_DRIVE
+    charged = Car(temp=47.0)
+    charged.run(20, glv_on=True)
+    charged.snapshot.cell_volts = [3.60] * DEFAULT.series_modules
+    charged.run(600, charger_connected=True)
+    charger_faults = Fault.CELL_OVERTEMP in charged.bms.faults.active
+    check("Regen braking is not mistaken for charging", driving_ok and charger_faults,
+          "47 C drives, faults on a charger")
+
     # EV.7.3.3 - no balancing while the shutdown circuit is open.
     imbalanced = Car()
     imbalanced.run(20, glv_on=True)

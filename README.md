@@ -425,6 +425,13 @@ Stated plainly, because knowing the boundary matters as much as the work inside 
 - **Balancing is simplified.** The decision of which cells to drain is implemented, but
   real balancing happens *during* charging rather than as a separate step, and how long
   to drain for depends on the hardware.
+- **It does not limit regenerative braking current when the cells are cold.**
+  Pushing current into a cold cell damages it, whichever direction the car is
+  travelling. A production BMS reduces how much braking energy goes back into the
+  battery at low temperature; it does not disconnect the battery, because that would
+  stop the car. This version applies the driving temperature range whenever the car
+  is driving, and leaves that current limiting out. Adding it needs control over
+  motor torque, which this project does not model.
 - **The first-fault record is not saved to permanent storage.** It is held in memory and
   broadcast on the bus. If the car's power is cut before anyone reads it, it is lost.
   Writing it to flash memory would fix that and is the first thing I would add.

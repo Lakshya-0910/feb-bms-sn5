@@ -117,6 +117,34 @@ class TestContextDependentLimits(unittest.TestCase):
         cold = healthy(self.config, temp=1.0, current=5.0)
         self.assertFalse(bool(run_for(manager, cold, self.config, ms=300)))
 
+    def test_regen_braking_is_not_charging(self):
+        """Current flows into the pack under regen, but the car is still driving.
+
+        47 C is legal on track and a fault on a charger. Reading the current sign
+        instead of the state turned every lift-off into a shutdown.
+        """
+        manager = FaultManager(self.config)
+        regen = healthy(self.config, temp=47.0, current=-8.0)
+        active = run_for(manager, regen, self.config, ms=400,
+                         state=State.READY_TO_DRIVE)
+        self.assertFalse(bool(active), f"regen tripped {manager.describe()}")
+
+    def test_the_same_temperature_still_faults_on_a_charger(self):
+        manager = FaultManager(self.config)
+        charging = healthy(self.config, temp=47.0, current=-8.0)
+        active = run_for(manager, charging, self.config, ms=400, state=State.CHARGING)
+        self.assertIn(Fault.CELL_OVERTEMP, active)
+
+    def test_current_noise_around_zero_does_not_move_the_limit(self):
+        # A hall sensor with 1 A of error reading a stationary car crosses zero
+        # constantly; the temperature window must not follow it.
+        manager = FaultManager(self.config)
+        warm = healthy(self.config, temp=47.0)
+        for i in range(40):
+            warm.pack_current_amps = 0.8 if i % 2 else -0.8
+            run_for(manager, warm, self.config, ms=10, state=State.READY_TO_DRIVE)
+        self.assertFalse(manager.faulted)
+
 
 class TestDiscreteFaults(unittest.TestCase):
     def setUp(self):

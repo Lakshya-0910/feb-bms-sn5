@@ -79,8 +79,11 @@ class FaultManager:
             found.append(Condition(Fault.CELL_UNDERVOLT, summary.min_cell_volts,
                                    c.effective_undervolt, summary.min_cell_index))
 
-        # EV.7.3.4 c / EV.7.5.2. The charge window is tighter at both ends.
-        charging = state is State.CHARGING or summary.charging
+        # EV.7.3.4 c / EV.7.5.2. The charge window is tighter at both ends, and
+        # the state decides it rather than the sign of the current: regenerative
+        # braking pushes current into the pack while driving, and treating that
+        # as charging faults a perfectly legal warm pack out on track.
+        charging = state is State.CHARGING
         max_temp = c.effective_charge_max_temp if charging else c.effective_max_temp
         min_temp = c.effective_charge_min_temp if charging else c.effective_discharge_min_temp
 
