@@ -43,7 +43,11 @@ class TestPrecharge(unittest.TestCase):
     """EV.5.6: 90 % by voltage feedback, never by a timer."""
 
     def setUp(self):
-        self.rig = Rig().boot()
+        # 4.0 V cells make the pack voltage exactly representable, so the
+        # boundary test does not depend on floating-point summation order.
+        # CPython 3.12 changed sum() to compensated summation, which shifts the
+        # last bit of a 3.7 V pack and flips an exactly-90 % comparison.
+        self.rig = Rig(volts=4.0).boot()
         self.rig.run(20, tsms_closed=True)
 
     def test_time_alone_never_completes_a_precharge(self):

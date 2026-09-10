@@ -42,15 +42,18 @@ class TestPrecharge(unittest.TestCase):
     """EV.5.6.1 a: 90 % of pack voltage, decided by feedback (EV.5.6.2 a)."""
 
     def setUp(self):
+        # 4.0 V cells keep the pack voltage exactly representable; see the note
+        # in test_state_machine.TestPrecharge.
         self.config = make_config()
-        self.pack = 3.70 * 8
+        self.volts = 4.0
+        self.pack = self.volts * self.config.series_modules
 
     def test_completes_at_exactly_ninety_percent(self):
-        snap = healthy(self.config, intermediate=self.pack * 0.90)
+        snap = healthy(self.config, volts=self.volts, intermediate=self.pack * 0.90)
         self.assertTrue(precharge_complete(summarise(snap, self.config), self.config))
 
     def test_does_not_complete_just_below(self):
-        snap = healthy(self.config, intermediate=self.pack * 0.899)
+        snap = healthy(self.config, volts=self.volts, intermediate=self.pack * 0.899)
         self.assertFalse(precharge_complete(summarise(snap, self.config), self.config))
 
     def test_empty_pack_reports_no_progress_instead_of_crashing(self):
