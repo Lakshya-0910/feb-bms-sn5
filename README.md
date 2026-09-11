@@ -90,38 +90,91 @@ Each state exists for a reason, and most of those reasons are in the rulebook.
 
 ### How they connect
 
+Three views of the same transition table, split because one picture of twenty
+labelled arrows is too wide to read comfortably.
+
+**Driving**
+
 ```mermaid
 stateDiagram-v2
+    direction TB
     [*] --> INIT
-    INIT --> SELF_TEST: TICK
-    SELF_TEST --> IDLE: SELF_TEST_PASS (EV.7.3.4 d,e)
-    IDLE --> PRECHARGE: TSMS_CLOSED (EV.9.2)
-    IDLE --> CHARGING: CHARGER_CONNECTED (EV.8.3)
-    IDLE --> BALANCING: BALANCE_REQUEST (EV.7.3.3)
-    PRECHARGE --> TS_ACTIVE: PRECHARGE_DONE (EV.5.6.1 a)
-    PRECHARGE --> SHUTDOWN: TSMS_OPENED (EV.7.2.1)
-    TS_ACTIVE --> READY_TO_DRIVE: RTD_REQUEST (EV.9.6.2)
-    TS_ACTIVE --> SHUTDOWN: TSMS_OPENED (EV.7.2.1)
-    READY_TO_DRIVE --> SHUTDOWN: RTD_EXIT (EV.7.2.1)
-    READY_TO_DRIVE --> SHUTDOWN: TSMS_OPENED (EV.7.2.1)
-    CHARGING --> BALANCING: CHARGE_COMPLETE (EV.7.3.3)
-    CHARGING --> IDLE: CHARGE_COMPLETE
-    CHARGING --> IDLE: CHARGER_REMOVED
-    CHARGING --> BALANCING: BALANCE_REQUEST (EV.7.3.3)
-    BALANCING --> IDLE: BALANCE_DONE
-    BALANCING --> IDLE: CHARGER_REMOVED
-    BALANCING --> IDLE: TSMS_CLOSED
-    SHUTDOWN --> IDLE: TS_DISCHARGED (EV.7.2.2 c)
-    FAULT --> SELF_TEST: MANUAL_RESET (EV.7.2.3)
-    note right of FAULT
-        Any state enters FAULT when a fault latches (EV.7.3.5).
-        It stays there until a manual reset (EV.7.2.3).
+    INIT --> SELF_TEST: power on
+    SELF_TEST --> IDLE: sensors answer
+    IDLE --> PRECHARGE: master switch on
+    PRECHARGE --> TS_ACTIVE: reached 90%
+    PRECHARGE --> SHUTDOWN: master switch off
+    TS_ACTIVE --> READY_TO_DRIVE: brake held + button
+    TS_ACTIVE --> SHUTDOWN: master switch off
+    READY_TO_DRIVE --> SHUTDOWN: shutdown button
+    READY_TO_DRIVE --> SHUTDOWN: master switch off
+    SHUTDOWN --> IDLE: below 60 V
+```
+
+**Charging and balancing**
+
+```mermaid
+stateDiagram-v2
+    direction TB
+    [*] --> IDLE
+    IDLE --> CHARGING: charger plugged in
+    IDLE --> BALANCING: cells uneven
+    CHARGING --> BALANCING: fullest cell full, cells uneven
+    CHARGING --> IDLE: fullest cell full, otherwise
+    CHARGING --> IDLE: charger unplugged
+    CHARGING --> BALANCING: cells uneven
+    BALANCING --> IDLE: cells even
+    BALANCING --> IDLE: charger unplugged
+    BALANCING --> IDLE: master switch on
+```
+
+**Faults, which can happen in any state**
+
+```mermaid
+stateDiagram-v2
+    direction TB
+    ANY_STATE --> FAULT: a fault latches
+    FAULT --> SELF_TEST: reset at the car
+    note right of SELF_TEST
+        Rejoins the driving diagram. The car re-checks its
+        sensors before high voltage is allowed back.
     end note
 ```
 
-**This diagram is generated from the code**, not drawn by hand — `to_mermaid()` in
-`bms/state_machine.py` reads the transition table and prints it. That means the
-picture cannot drift out of date as the code changes.
+All three diagrams and the table below are **generated from the transition table**
+in `bms/state_machine.py` rather than drawn by hand, so the pictures cannot drift
+away from the behaviour. A test checks that every transition appears in exactly one
+of the three, so none can quietly go missing.
+
+#### Every transition
+
+| From | Trigger | To | Rule |
+|---|---|---|---|
+| INIT | power on | SELF_TEST | - |
+| SELF_TEST | sensors answer | IDLE | EV.7.3.4 d,e |
+| IDLE | master switch on | PRECHARGE | EV.9.2 |
+| IDLE | charger plugged in | CHARGING | EV.8.3 |
+| IDLE | cells uneven | BALANCING | EV.7.3.3 |
+| PRECHARGE | reached 90% | TS_ACTIVE | EV.5.6.1 a |
+| PRECHARGE | master switch off | SHUTDOWN | EV.7.2.1 |
+| TS_ACTIVE | brake held + button | READY_TO_DRIVE | EV.9.6.2 |
+| TS_ACTIVE | master switch off | SHUTDOWN | EV.7.2.1 |
+| READY_TO_DRIVE | shutdown button | SHUTDOWN | EV.7.2.1 |
+| READY_TO_DRIVE | master switch off | SHUTDOWN | EV.7.2.1 |
+| CHARGING | fullest cell full, cells uneven | BALANCING | EV.7.3.3 |
+| CHARGING | fullest cell full, otherwise | IDLE | - |
+| CHARGING | charger unplugged | IDLE | - |
+| CHARGING | cells uneven | BALANCING | EV.7.3.3 |
+| BALANCING | cells even | IDLE | - |
+| BALANCING | charger unplugged | IDLE | - |
+| BALANCING | master switch on | IDLE | - |
+| SHUTDOWN | below 60 V | IDLE | EV.7.2.2 c |
+| FAULT | reset at the car | SELF_TEST | EV.7.2.3 |
+| any state | a fault latches | FAULT | EV.7.3.5 |
+
+
+Where two arrows leave the same state on the same trigger, the condition that
+separates them is named in the label.
 
 A normal start-up looks like this:
 

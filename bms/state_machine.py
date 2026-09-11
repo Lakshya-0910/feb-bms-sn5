@@ -375,15 +375,83 @@ class BMS:
         ]
 
 
-def to_mermaid() -> str:
-    """Render TRANSITIONS as a Mermaid diagram, so the picture in the write-up
-    cannot disagree with the code it documents."""
-    lines = ["stateDiagram-v2", "    [*] --> INIT"]
+# Plain wording for the diagrams. Enum names and rule numbers on every arrow made
+# the picture too wide to read; the rules live in transition_table() instead.
+EVENT_LABELS: dict[Event, str] = {
+    Event.TICK: "power on",
+    Event.SELF_TEST_PASS: "sensors answer",
+    Event.TSMS_CLOSED: "master switch on",
+    Event.TSMS_OPENED: "master switch off",
+    Event.PRECHARGE_DONE: "reached 90%",
+    Event.RTD_REQUEST: "brake held + button",
+    Event.RTD_EXIT: "shutdown button",
+    Event.CHARGER_CONNECTED: "charger plugged in",
+    Event.CHARGER_REMOVED: "charger unplugged",
+    Event.CHARGE_COMPLETE: "fullest cell full",
+    Event.BALANCE_REQUEST: "cells uneven",
+    Event.BALANCE_DONE: "cells even",
+    Event.TS_DISCHARGED: "below 60 V",
+    Event.MANUAL_RESET: "reset at the car",
+}
+
+# When two rows share a source and trigger, only the guard separates them, so the
+# label has to say which is which or the picture reads as a coin toss.
+GUARD_LABELS: dict[str, str] = {"_balance_wanted": "cells uneven"}
+
+DIAGRAMS = ("driving", "charging", "fault")
+
+
+def label_of(t: Transition) -> str:
+    label = EVENT_LABELS.get(t.event, t.event.name)
+    siblings = [o for o in TRANSITIONS if o.source is t.source and o.event is t.event]
+    if len(siblings) > 1:
+        name = t.guard.__name__ if t.guard else None
+        label += f", {GUARD_LABELS.get(name, 'otherwise')}" if name else ", otherwise"
+    return label
+
+
+def group_of(t: Transition) -> str:
+    """Which diagram a transition belongs to. Every row lands in exactly one."""
+    if State.FAULT in (t.source, t.target):
+        return "fault"
+    if {t.source, t.target} & {State.CHARGING, State.BALANCING}:
+        return "charging"
+    return "driving"
+
+
+def to_mermaid(group: str | None = None) -> str:
+    """Render the transition table as a Mermaid diagram.
+
+    Split into three views because one picture of twenty labelled arrows is too
+    wide to read. Generated from TRANSITIONS either way, so the diagrams cannot
+    drift from the behaviour they describe.
+    """
+    rows = [t for t in TRANSITIONS if group is None or group_of(t) == group]
+    lines = ["stateDiagram-v2", "    direction TB"]
+
+    if group in (None, "driving"):
+        lines.append("    [*] --> INIT")
+    if group == "charging":
+        lines.append("    [*] --> IDLE")
+
+    for t in rows:
+        lines.append(f"    {t.source.name} --> {t.target.name}: {label_of(t)}")
+
+    if group == "fault":
+        # The edge into FAULT is not a table row: it can be taken from any state.
+        lines.insert(2, "    ANY_STATE --> FAULT: a fault latches")
+        lines.append("    note right of SELF_TEST")
+        lines.append("        Rejoins the driving diagram. The car re-checks its")
+        lines.append("        sensors before high voltage is allowed back.")
+        lines.append("    end note")
+    return "\n".join(lines)
+
+
+def transition_table() -> str:
+    """Every transition as a Markdown table, with the rule behind each one."""
+    lines = ["| From | Trigger | To | Rule |", "|---|---|---|---|"]
     for t in TRANSITIONS:
-        label = f"{t.event.name} ({t.rule})" if t.rule else t.event.name
-        lines.append(f"    {t.source.name} --> {t.target.name}: {label}")
-    lines.append("    note right of FAULT")
-    lines.append("        Any state enters FAULT when the fault manager latches.")
-    lines.append("        EV.7.3.5, and it stays until a manual reset (EV.7.2.3).")
-    lines.append("    end note")
+        lines.append(f"| {t.source.name} | {label_of(t)} "
+                     f"| {t.target.name} | {t.rule or '-'} |")
+    lines.append("| any state | a fault latches | FAULT | EV.7.3.5 |")
     return "\n".join(lines)

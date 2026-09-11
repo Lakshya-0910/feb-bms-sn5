@@ -1,6 +1,6 @@
 import unittest
 
-from bms.state_machine import TRANSITIONS, to_mermaid
+from bms.state_machine import DIAGRAMS, TRANSITIONS, group_of, to_mermaid, transition_table
 from bms.types import Event, Fault, State
 from tests.helpers import Rig, make_config
 
@@ -237,6 +237,32 @@ class TestTableIntegrity(unittest.TestCase):
         diagram = to_mermaid()
         for t in TRANSITIONS:
             self.assertIn(f"{t.source.name} --> {t.target.name}", diagram)
+
+    def test_every_transition_appears_in_exactly_one_diagram(self):
+        """The diagram is split across three views, so completeness needs proving."""
+        for t in TRANSITIONS:
+            matches = [g for g in DIAGRAMS if group_of(t) == g]
+            self.assertEqual(len(matches), 1, f"{t.source}-{t.event}->{t.target}")
+
+    def test_the_three_diagrams_together_show_everything(self):
+        drawn = "\n".join(to_mermaid(g) for g in DIAGRAMS)
+        for t in TRANSITIONS:
+            self.assertIn(f"{t.source.name} --> {t.target.name}", drawn)
+
+    def test_rows_sharing_a_trigger_are_distinguishable(self):
+        """Two arrows out of one state on the same trigger must not read alike."""
+        for t in TRANSITIONS:
+            siblings = [o for o in TRANSITIONS
+                        if o.source is t.source and o.event is t.event]
+            if len(siblings) > 1:
+                from bms.state_machine import label_of
+                self.assertEqual(len({label_of(o) for o in siblings}), len(siblings))
+
+    def test_table_lists_every_transition_plus_the_fault_edge(self):
+        table = transition_table()
+        for t in TRANSITIONS:
+            self.assertIn(f"| {t.source.name} |", table)
+        self.assertIn("any state", table)     # the edge that is not a table row
 
 
 if __name__ == "__main__":
