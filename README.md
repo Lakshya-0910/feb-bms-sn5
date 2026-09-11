@@ -439,10 +439,11 @@ Stated plainly, because knowing the boundary matters as much as the work inside 
 
 ---
 
-## Three bugs worth mentioning
+## Bugs found and fixed
 
-Found by writing the tests and scenarios, not by reading the code. Each one changed the
-design.
+Six, in two groups. The first three surfaced while writing tests and scenarios — the
+behaviour was wrong and a test caught it. The last three came from a deliberate review
+pass afterwards, looking for problems no existing test would find.
 
 **Clearing a fault re-armed the car instantly.** If the driver's foot was on the brake
 and thumb on the button when the fault happened — which is exactly when a fault
@@ -460,6 +461,36 @@ balancing unreachable: if being full meant every cell was full, a full pack coul
 never be out of balance. Measuring the highest cell instead is both correct and the
 reason balancing exists at all — the fullest cell stops the charge while the others are
 still short.
+
+### Found by reviewing, not by testing
+
+**Regenerative braking was mistaken for charging.** This is the one that mattered. The
+temperature limit while charging is much tighter than while driving — 43 °C against
+58 °C — because pushing current into a hot cell damages it. I was choosing between those
+limits partly by whether current was flowing *into* the pack, and under regenerative
+braking it is. So a pack at 47 °C, entirely legal on track and eleven degrees inside the
+driving limit, faulted the moment the driver lifted off the accelerator — which
+disconnects the battery, stops the car, and needs someone to walk out and reset it.
+
+Eighty-three tests missed this, and the reason is worth more than the fix: every
+charging test also set the charging state, so current direction and state always moved
+together and nothing ever tested them apart. Coverage is not a count of tests; it is
+whether the tests can tell two things apart. The state now decides the limits.
+
+**Two welded contactors could hide each other.** Both shared a single fault code, and
+active faults are held in a table indexed by code, so the two overwrote each other and
+only one was ever reported. With both welded, the crew would be told about one and go
+looking at the wrong half of the car. Each contactor now has its own code.
+
+The obvious fix — indexing that table by which sensor reported the problem — would have
+been smaller and worse. Voltage and temperature faults report whichever cell is
+currently the most extreme, and that changes between readings, so the timer that waits
+for a fault to persist would have restarted every time it changed and a real fault would
+never have registered. That reasoning is recorded next to the code.
+
+**A counter overflowed after fifty days.** The time-since-startup field sent on the data
+bus was four bytes with nothing limiting the value written into it, so a pack left
+powered for about fifty days crashed the messaging layer. It now wraps instead.
 
 ---
 
