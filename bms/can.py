@@ -146,7 +146,10 @@ class BmsCan:
                                  out.air_negative_cmd, out.precharge_relay_cmd,
                                  out.motors_enabled, out.rtds_active,
                                  out.bms_indicator, out.ts_status_indicator)
-                         + bms.uptime_ms.to_bytes(4, "little", signed=False)[:4]
+                         # Masked, not sliced: to_bytes raises before a slice
+                         # could help, and a pack left powered for seven weeks
+                         # should wrap rather than take down the bus.
+                         + (bms.uptime_ms & 0xFFFFFFFF).to_bytes(4, "little")
                          + bytes([1 if bms.faults.faulted else 0])
                          + bytes(1))
 

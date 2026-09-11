@@ -81,7 +81,8 @@ class Fault(Flag):
     # Tractive-system integrity
     PRECHARGE_TIMEOUT = auto()
     IMD = auto()
-    AIR_WELD = auto()
+    AIR_POSITIVE_WELD = auto()
+    AIR_NEGATIVE_WELD = auto()
     SHUTDOWN_TIMEOUT = auto()
 
 
@@ -98,7 +99,8 @@ FAULT_RULES: dict[Fault, str] = {
     Fault.OVERCURRENT_CHARGE: "cell datasheet",
     Fault.PRECHARGE_TIMEOUT: "EV.5.6",
     Fault.IMD: "EV.7.6",
-    Fault.AIR_WELD: "EV.5.4.2",
+    Fault.AIR_POSITIVE_WELD: "EV.5.4.2",
+    Fault.AIR_NEGATIVE_WELD: "EV.5.4.2",
     Fault.SHUTDOWN_TIMEOUT: "EV.7.2.2 c",
 }
 

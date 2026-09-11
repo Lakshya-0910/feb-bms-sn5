@@ -252,8 +252,19 @@ def fault_detection() -> None:
     car.snapshot.air_positive_closed = True
     car.run(400)
     check("    isolation relay welded shut",
-          Fault.AIR_WELD in car.bms.faults.active,
+          Fault.AIR_POSITIVE_WELD in car.bms.faults.active,
           "open command, closed feedback, EV.5.4.2")
+
+    both = Car()
+    both.run(20, glv_on=True)
+    both.world.plant_enabled = False
+    both.snapshot.air_positive_closed = True
+    both.snapshot.air_negative_closed = True
+    both.run(400)
+    active = both.bms.faults.active
+    check("    both relays reported separately",
+          Fault.AIR_POSITIVE_WELD in active and Fault.AIR_NEGATIVE_WELD in active,
+          "neither weld hides the other")
 
 
 def mandated_behaviour() -> None:

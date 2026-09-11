@@ -70,6 +70,18 @@ class TestEncoding(unittest.TestCase):
         self.assertEqual(blocks, {0, 1})
 
 
+class TestStatusFrame(unittest.TestCase):
+    def test_uptime_wraps_instead_of_crashing(self):
+        """A pack left powered for seven weeks used to raise OverflowError here."""
+        rig = CanRig().boot()
+        rig.rig.bms.uptime_ms = 2 ** 32 + 1234
+        rig.run(20)
+        frame = rig.bus.frames(BMS_STATUS)[-1]
+        self.assertEqual(len(frame.data), 8)
+        reported = int.from_bytes(frame.data[2:6], "little")
+        self.assertLess(reported, 2 ** 32)
+
+
 class TestFaultReporting(unittest.TestCase):
     def setUp(self):
         self.rig = CanRig().boot()

@@ -17,7 +17,7 @@ EXPECTED = {
     "overtemp_during_drive": (State.FAULT, Fault.CELL_OVERTEMP),
     "cell_undervolt": (State.FAULT, Fault.CELL_UNDERVOLT),
     "sense_wire_loss": (State.FAULT, Fault.SENSE_TIMEOUT),
-    "air_weld": (State.FAULT, Fault.AIR_WELD),
+    "air_weld": (State.FAULT, Fault.AIR_POSITIVE_WELD),
     "charge_cycle": (State.IDLE, None),
     "fault_reset_sequence": (State.TS_ACTIVE, None),
 }

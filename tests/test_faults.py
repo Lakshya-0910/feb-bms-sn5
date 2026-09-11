@@ -181,7 +181,26 @@ class TestWeldedRelay(unittest.TestCase):
         snap.air_positive_closed = True
         active = run_for(self.manager, snap, self.config, ms=200,
                          last_outputs=Outputs.safe())
-        self.assertIn(Fault.AIR_WELD, active)
+        self.assertIn(Fault.AIR_POSITIVE_WELD, active)
+
+    def test_both_relays_welded_are_both_reported(self):
+        """A shared code let the second weld overwrite the first in the live map,
+        so one welded relay could hide behind the other."""
+        snap = healthy(self.config)
+        snap.air_positive_closed = True
+        snap.air_negative_closed = True
+        active = run_for(self.manager, snap, self.config, ms=200,
+                         last_outputs=Outputs.safe())
+        self.assertIn(Fault.AIR_POSITIVE_WELD, active)
+        self.assertIn(Fault.AIR_NEGATIVE_WELD, active)
+
+    def test_each_relay_is_reported_on_its_own(self):
+        snap = healthy(self.config)
+        snap.air_negative_closed = True
+        active = run_for(self.manager, snap, self.config, ms=200,
+                         last_outputs=Outputs.safe())
+        self.assertIn(Fault.AIR_NEGATIVE_WELD, active)
+        self.assertNotIn(Fault.AIR_POSITIVE_WELD, active)
 
     def test_closed_feedback_against_a_close_command_is_normal(self):
         snap = healthy(self.config)
@@ -189,7 +208,8 @@ class TestWeldedRelay(unittest.TestCase):
         snap.air_negative_closed = True
         commanded = Outputs(air_positive_cmd=True, air_negative_cmd=True)
         active = run_for(self.manager, snap, self.config, ms=200, last_outputs=commanded)
-        self.assertNotIn(Fault.AIR_WELD, active)
+        self.assertNotIn(Fault.AIR_POSITIVE_WELD, active)
+        self.assertNotIn(Fault.AIR_NEGATIVE_WELD, active)
 
 
 class TestLatchingAndReset(unittest.TestCase):

@@ -47,6 +47,10 @@ class FaultManager:
         last_outputs: Outputs | None = None,
     ) -> Fault:
         """Fold this tick into the fault state. Returns the latched set."""
+        # Keyed by code, which requires _evaluate to raise each code at most once
+        # per tick. Keying by channel instead would break the aggregate faults:
+        # overvoltage reports whichever cell is highest, and that index moves
+        # between ticks, which would restart the debounce and never latch.
         self._live = {c.code: c for c in self._evaluate(summary, snapshot, state, last_outputs)}
 
         for code, condition in self._live.items():
@@ -120,11 +124,14 @@ class FaultManager:
 
         # Commanded open but reading closed means welded; debounced long enough
         # for a healthy contactor to actually move.
+        # Each relay has its own code. Sharing one meant the two collided in the
+        # live-condition map below and only the second survived, so a welded
+        # positive relay could hide behind a welded negative one.
         if last_outputs is not None:
             if not last_outputs.air_positive_cmd and snapshot.air_positive_closed:
-                found.append(Condition(Fault.AIR_WELD, 1.0, 0.0, channel=0))
+                found.append(Condition(Fault.AIR_POSITIVE_WELD, 1.0, 0.0))
             if not last_outputs.air_negative_cmd and snapshot.air_negative_closed:
-                found.append(Condition(Fault.AIR_WELD, 1.0, 0.0, channel=1))
+                found.append(Condition(Fault.AIR_NEGATIVE_WELD, 1.0, 0.0))
 
         return found
 
@@ -134,7 +141,8 @@ class FaultManager:
             return c.voltage_debounce_ms
         if code in (Fault.CELL_OVERTEMP, Fault.CELL_UNDERTEMP):
             return c.temp_debounce_ms
-        if code in (Fault.OVERCURRENT_DISCHARGE, Fault.OVERCURRENT_CHARGE, Fault.AIR_WELD):
+        if code in (Fault.OVERCURRENT_DISCHARGE, Fault.OVERCURRENT_CHARGE,
+                    Fault.AIR_POSITIVE_WELD, Fault.AIR_NEGATIVE_WELD):
             return c.current_debounce_ms
         if code is Fault.IMD:
             return c.imd_debounce_ms
